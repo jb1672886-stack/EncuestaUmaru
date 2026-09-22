@@ -156,13 +156,31 @@ function Header({
   view: View;
   onNavigate: (view: View) => void;
 }) {
+  const [clickCount, setClickCount] = useState(0);
+
+  const handleLogoClick = () => {
+    if (view === "results" || view === "admin-login") {
+      onNavigate("survey");
+      return;
+    }
+
+    const nextCount = clickCount + 1;
+    if (nextCount >= 3) {
+      setClickCount(0);
+      onNavigate("admin-login");
+    } else {
+      setClickCount(nextCount);
+      setTimeout(() => setClickCount(0), 1000);
+    }
+  };
+
   return (
     <header className="border-b border-[#ded8ce] bg-[#f7f4ee]/95 backdrop-blur">
       <div className="mx-auto flex h-[86px] max-w-7xl items-center justify-between px-5 sm:px-8">
         <button
           className="flex items-center gap-3 text-left"
-          onClick={() => onNavigate("survey")}
-          aria-label="Ir a la encuesta"
+          onClick={handleLogoClick}
+          aria-label="Ir al inicio"
         >
           <img
             src={logoBase64}
@@ -175,15 +193,16 @@ function Header({
             gastronómica
           </span>
         </button>
-        <button
-          onClick={() =>
-            onNavigate(view === "results" ? "survey" : "admin-login")
-          }
-          aria-label={view === "results" ? "Cerrar panel" : "Acceso administrador"}
-          className="group flex items-center gap-2 rounded-full border border-[#c8bfb1] px-4 py-2.5 text-xs font-bold uppercase tracking-[0.1em] text-[#463b35] transition hover:border-[#98592f] hover:bg-white"
-        >
-          <Icon name={view === "results" ? "survey" : "lock"} />
-        </button>
+        {view === "results" || view === "admin-login" ? (
+          <button
+            onClick={() => onNavigate("survey")}
+            aria-label="Volver a la encuesta"
+            className="group flex items-center gap-2 rounded-full border border-[#c8bfb1] px-4 py-2.5 text-xs font-bold uppercase tracking-[0.1em] text-[#463b35] transition hover:border-[#98592f] hover:bg-white"
+          >
+            <Icon name="survey" />
+            <span className="hidden sm:inline">Volver a la encuesta</span>
+          </button>
+        ) : null}
       </div>
     </header>
   );
@@ -416,17 +435,11 @@ function Survey({
           </p>
         )}
 
-        <div className="mt-8 flex flex-col items-center justify-between gap-5 rounded-2xl bg-[#3a302b] p-6 text-white sm:flex-row sm:p-8">
-          <div>
-            <p className="font-display text-2xl">Gracias por ser parte.</p>
-            <p className="mt-1 text-sm text-[#cfc4bd]">
-              Tus respuestas nos ayudan a construir el nuevo UMARU.
-            </p>
-          </div>
+        <div className="mt-10 flex justify-center">
           <button
             type="submit"
             disabled={isSubmitting}
-            className="flex w-full items-center justify-center gap-3 rounded-full bg-[#b87443] px-7 py-4 text-sm font-bold uppercase tracking-[0.12em] transition hover:bg-[#c98553] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            className="flex w-full items-center justify-center gap-3 rounded-full bg-[#b87443] px-10 py-4 text-sm font-bold uppercase tracking-[0.14em] text-white shadow-md shadow-[#b87443]/20 transition hover:bg-[#c98553] hover:shadow-lg hover:shadow-[#b87443]/30 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
             {isSubmitting ? "Enviando respuesta..." : "Enviar opinión"}
             <Icon name="arrow" />
@@ -879,7 +892,24 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  // Check hash or URL search parameters for admin access (e.g. #admin)
+  useEffect(() => {
+    function checkAdminHash() {
+      const hash = window.location.hash.toLowerCase();
+      const search = window.location.search.toLowerCase();
+      if (hash === "#admin" || search.includes("admin")) {
+        setView("admin-login");
+      }
+    }
+    checkAdminHash();
+    window.addEventListener("hashchange", checkAdminHash);
+    return () => window.removeEventListener("hashchange", checkAdminHash);
+  }, []);
+
   function navigate(nextView: View) {
+    if (nextView === "survey" && window.location.hash === "#admin") {
+      history.pushState(null, "", window.location.pathname);
+    }
     setView(nextView);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -899,7 +929,16 @@ export default function App() {
       )}
       {view === "thanks" && <ThankYou onBack={() => navigate("survey")} />}
       <footer className="border-t border-[#4b403a] bg-[#302824] px-5 py-6 text-center text-xs tracking-wide text-[#a99d96]">
-        UMARU HOTEL · Ayacucho, Perú · Encuesta anónima
+        <span>UMARU HOTEL</span>
+        <button
+          onClick={() => navigate("admin-login")}
+          className="mx-2 inline-block cursor-default select-none text-[#a99d96] opacity-70 transition hover:opacity-100"
+          aria-label="Acceso administrativo"
+          title=""
+        >
+          ·
+        </button>
+        <span>Ayacucho, Perú · Encuesta anónima</span>
       </footer>
     </div>
   );
