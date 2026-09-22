@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { logoBase64 } from "./lib/logoBase64";
 import { supabase } from "./lib/supabase";
+import * as XLSX from "xlsx";
 
 type View = "survey" | "admin-login" | "results" | "thanks";
 
@@ -334,11 +335,10 @@ function Survey({
                   return (
                     <label
                       key={option}
-                      className={`option-card flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-4 text-sm leading-5 transition ${
-                        isChecked
+                      className={`option-card flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-4 text-sm leading-5 transition ${isChecked
                           ? "border-[#a86438] bg-[#fbf4ed] text-[#4a3326]"
                           : "border-[#e0dbd3] bg-[#fcfbf9] text-[#615750] hover:border-[#bda78f]"
-                      } ${disabled ? "cursor-not-allowed opacity-45" : ""}`}
+                        } ${disabled ? "cursor-not-allowed opacity-45" : ""}`}
                     >
                       <input
                         className="sr-only"
@@ -353,13 +353,11 @@ function Survey({
                         }
                       />
                       <span
-                        className={`flex h-5 w-5 shrink-0 items-center justify-center border ${
-                          question.multiple ? "rounded" : "rounded-full"
-                        } ${
-                          isChecked
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center border ${question.multiple ? "rounded" : "rounded-full"
+                          } ${isChecked
                             ? "border-[#a86438] bg-[#a86438] text-white"
                             : "border-[#b9b0a6] bg-white"
-                        }`}
+                          }`}
                       >
                         {isChecked && (
                           <Icon name="check" className="h-3.5 w-3.5" />
@@ -513,14 +511,45 @@ function Results({
                   </button>
                 )}
                 {onClear && total > 0 && (
-                  <button
-                    onClick={onClear}
-                    className="flex items-center gap-2 rounded-full border border-[#7a3b30] bg-[#45231c] px-4 py-2 text-xs font-bold uppercase tracking-[0.08em] text-[#f4bab0] transition hover:border-[#a84d3e] hover:bg-[#572b22]"
-                    title="Eliminar todas las respuestas de prueba"
-                  >
-                    <Icon name="trash" className="h-3.5 w-3.5 text-[#f4bab0]" />
-                    <span>Vaciar datos</span>
-                  </button>
+                  <>
+                    <button
+                      onClick={() => {
+                        // Generate Excel file from responses
+                        const ws = XLSX.utils.json_to_sheet(responses.map((r) => ({
+                          id: r.id,
+                          createdAt: r.createdAt,
+                          q1: r.q1,
+                          q2: r.q2,
+                          q3: r.q3.join(', '),
+                          q4: r.q4,
+                          q5: r.q5,
+                          q6: r.q6,
+                        })));
+                        const wb = XLSX.utils.book_new();
+                        XLSX.utils.book_append_sheet(wb, ws, 'Responses');
+                        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                        const blob = new Blob([wbout], { type: 'application/octet-stream' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'encuestas.xlsx';
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="flex items-center gap-2 rounded-full border border-[#5a3b30] bg-[#56231c] px-4 py-2 text-xs font-bold uppercase tracking-[0.08em] text-[#f4bab0] transition hover:border-[#a84d3e] hover:bg-[#572b22]"
+                    >
+                      <Icon name="download" className="h-3.5 w-3.5" />
+                      Exportar a Excel
+                    </button>
+                    <button
+                      onClick={onClear}
+                      className="flex items-center gap-2 rounded-full border border-[#7a3b30] bg-[#45231c] px-4 py-2 text-xs font-bold uppercase tracking-[0.08em] text-[#f4bab0] transition hover:border-[#a84d3e] hover:bg-[#572b22]"
+                      title="Eliminar todas las respuestas de prueba"
+                    >
+                      <Icon name="trash" className="h-3.5 w-3.5 text-[#f4bab0]" />
+                      <span>Vaciar datos</span>
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -740,10 +769,10 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
           Acceso administrador
         </p>
         <h1 className="mt-3 text-center font-display text-4xl text-[#392f2a]">
-          Ingresa la frase de acceso
+          Ingresar contraseña
         </h1>
         <label className="mt-8 block text-sm font-semibold text-[#51433c]">
-          Frase de acceso
+          Contraseña
           <input
             type="password"
             value={phrase}
@@ -753,7 +782,7 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
             }}
             required
             autoComplete="off"
-            placeholder="Escribe la frase"
+            placeholder="Escribe tu contraseña"
             className="mt-2 w-full rounded-xl border border-[#ddd6ce] bg-[#fcfbf9] px-4 py-3 text-sm text-[#463b35] outline-none transition placeholder:text-[#aaa099] focus:border-[#aa693d] focus:ring-2 focus:ring-[#aa693d]/10"
           />
         </label>
@@ -789,7 +818,7 @@ export default function App() {
       if (saved && ["survey", "admin-login", "results", "thanks"].includes(saved)) {
         return saved;
       }
-    } catch {}
+    } catch { }
 
     return "survey";
   });
@@ -869,7 +898,7 @@ export default function App() {
   function navigate(nextView: View) {
     try {
       sessionStorage.setItem("umaru-active-view", nextView);
-    } catch {}
+    } catch { }
 
     if (nextView === "results") {
       window.location.hash = "results";
@@ -927,17 +956,17 @@ export default function App() {
         setView("admin-login");
         try {
           sessionStorage.setItem("umaru-active-view", "admin-login");
-        } catch {}
+        } catch { }
       } else if (hash === "#results") {
         setView("results");
         try {
           sessionStorage.setItem("umaru-active-view", "results");
-        } catch {}
+        } catch { }
       } else if (hash === "#thanks") {
         setView("thanks");
         try {
           sessionStorage.setItem("umaru-active-view", "thanks");
-        } catch {}
+        } catch { }
       }
     }
     checkAdminHash();
