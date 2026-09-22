@@ -176,19 +176,19 @@ function Header({
   };
 
   return (
-    <header className="relative border-b border-[#ded8ce] bg-[#f7f4ee]/95 backdrop-blur">
-      <div className="mx-auto flex h-[94px] max-w-7xl items-center justify-center px-5 sm:px-8">
+    <header className="border-b border-[#ded8ce] bg-[#f7f4ee]/95 backdrop-blur">
+      <div className="mx-auto flex h-[86px] max-w-7xl items-center justify-between px-5 sm:px-8">
         <button
-          className="flex items-center justify-center gap-3.5 text-center cursor-pointer transition hover:opacity-90 max-w-full"
+          className="flex items-center gap-3 text-left cursor-pointer"
           onClick={handleLogoClick}
           aria-label="Ir al inicio"
         >
           <img
             src={logoBase64}
             alt="Umaru Hotel"
-            className="h-16 sm:h-20 w-auto max-w-[220px] sm:max-w-[300px] object-contain mix-blend-multiply"
+            className="h-14 w-auto max-h-14 max-w-[130px] object-contain mix-blend-multiply"
           />
-          <span className="hidden border-l border-[#cfc6b8] pl-4 text-left text-[10px] font-bold uppercase tracking-[0.24em] text-[#765e50] sm:block">
+          <span className="hidden border-l border-[#cfc6b8] pl-4 text-[10px] font-bold uppercase tracking-[0.22em] text-[#765e50] sm:block">
             Nueva propuesta
             <br />
             gastronómica
@@ -198,7 +198,7 @@ function Header({
           <button
             onClick={() => onNavigate("survey")}
             aria-label="Volver a la encuesta"
-            className="absolute right-5 sm:right-8 group flex items-center gap-2 rounded-full border border-[#c8bfb1] px-4 py-2 text-xs font-bold uppercase tracking-[0.1em] text-[#463b35] transition hover:border-[#98592f] hover:bg-white bg-[#f7f4ee]"
+            className="group flex items-center gap-2 rounded-full border border-[#c8bfb1] px-4 py-2.5 text-xs font-bold uppercase tracking-[0.1em] text-[#463b35] transition hover:border-[#98592f] hover:bg-white"
           >
             <Icon name="survey" />
             <span className="hidden sm:inline">Volver</span>
@@ -224,15 +224,6 @@ function Survey({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
-
-  const answered = [
-    answers.q1,
-    answers.q2,
-    answers.q3.length ? "selected" : "",
-    answers.q4,
-    answers.q5,
-    answers.q6.trim(),
-  ].filter(Boolean).length;
 
   function setSingle(id: Question["id"], value: string) {
     setAnswers((current) => ({ ...current, [id]: value }));
@@ -280,35 +271,19 @@ function Survey({
       <section className="relative overflow-hidden border-b border-[#ded8ce] bg-[#f7f4ee]">
         <div className="hero-orbit hero-orbit-one" />
         <div className="hero-orbit hero-orbit-two" />
-        <div className="relative mx-auto grid max-w-7xl gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[1fr_300px] lg:py-24">
-          <div className="max-w-3xl">
-            <div className="mb-7 flex items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[#a36135]">
-              <span className="h-px w-9 bg-[#a36135]" />
-              Encuesta 2025
-            </div>
-            <h1 className="font-display text-5xl leading-[0.98] tracking-[-0.04em] text-[#342b27] sm:text-7xl lg:text-[88px]">
-              Tu opinión
-              <br />
-              <span className="italic text-[#a76134]">transforma</span> UMARU
-            </h1>
-            <p className="mt-8 max-w-xl text-base leading-7 text-[#6e625c] sm:text-lg">
-              Ayúdanos a crear una experiencia que realmente quieras
-              repetir. Solo te tomará unos minutos.
-            </p>
-          </div>
-          <div className="self-end rounded-2xl border border-[#d9d1c5] bg-white/60 p-6">
-            <div className="mb-5 flex items-center justify-between text-xs font-bold uppercase tracking-[0.12em] text-[#685b53]">
-              <span>Tu progreso</span>
-              <span>{answered}/6</span>
-            </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-[#ddd6cb]">
-              <div
-                className="h-full rounded-full bg-[#ad693a] transition-all"
-                style={{ width: `${(answered / 6) * 100}%` }}
-              />
-            </div>
-            <div className="mt-6 flex gap-3 text-sm leading-5 text-[#766a63]">
-              <Icon name="lock" className="mt-0.5 h-5 w-5 shrink-0 text-[#a36135]" />
+        <div className="relative mx-auto max-w-4xl px-5 py-14 text-center sm:px-8 sm:py-20">
+          <h1 className="font-display text-5xl leading-[0.98] tracking-[-0.04em] text-[#342b27] sm:text-7xl lg:text-[84px]">
+            Tu opinión
+            <br />
+            <span className="italic text-[#a76134]">transforma</span> UMARU
+          </h1>
+          <p className="mx-auto mt-6 max-w-xl text-base leading-7 text-[#6e625c] sm:text-lg">
+            Ayúdanos a crear una experiencia que realmente quieras
+            repetir. Solo te tomará unos minutos.
+          </p>
+          <div className="mt-8 flex justify-center">
+            <div className="inline-flex items-center gap-2.5 rounded-full border border-[#ded5c8] bg-white/80 px-5 py-2.5 text-xs font-medium text-[#766a63] shadow-xs sm:text-sm">
+              <Icon name="lock" className="h-4 w-4 shrink-0 text-[#a36135]" />
               <span>Tu respuesta es completamente anónima y confidencial.</span>
             </div>
           </div>
