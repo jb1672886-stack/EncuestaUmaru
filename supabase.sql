@@ -25,6 +25,14 @@ for select
 to anon
 using (true);
 
+drop policy if exists "Anyone can delete survey responses" on public.survey_responses;
+create policy "Anyone can delete survey responses"
+on public.survey_responses
+for delete
+to anon
+using (true);
+
 -- Habilitar publicaciones en tiempo real en Supabase para actualizaciones instantáneas
 alter publication supabase_realtime add table public.survey_responses;
+
 

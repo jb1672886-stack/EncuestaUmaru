@@ -103,7 +103,7 @@ function Icon({
   name,
   className = "h-5 w-5",
 }: {
-  name: "arrow" | "chart" | "check" | "chevron" | "close" | "lock" | "refresh" | "survey";
+  name: "arrow" | "chart" | "check" | "chevron" | "close" | "lock" | "refresh" | "survey" | "trash";
   className?: string;
 }) {
   const paths = {
@@ -130,6 +130,12 @@ function Icon({
       <>
         <path d="M9 5h10M9 12h10M9 19h10" />
         <path d="m3 5 1 1 2-2m-3 8 1 1 2-2m-3 8 1 1 2-2" />
+      </>
+    ),
+    trash: (
+      <>
+        <path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+        <path d="M10 11v6m4-6v6" />
       </>
     ),
   };
@@ -429,11 +435,13 @@ function Survey({
 function Results({
   responses,
   onRefresh,
+  onClear,
   isRefreshing,
   lastUpdated,
 }: {
   responses: Response[];
   onRefresh?: () => void;
+  onClear?: () => void;
   isRefreshing?: boolean;
   lastUpdated?: Date;
 }) {
@@ -485,7 +493,7 @@ function Results({
                 </span>
                 <span>En vivo · Autoactualización activa</span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 {lastUpdated && (
                   <span className="text-xs text-[#a3978f]">
                     Actualizado: {lastUpdated.toLocaleTimeString()}
@@ -502,6 +510,16 @@ function Results({
                       className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin text-[#d6a37d]" : ""}`}
                     />
                     {isRefreshing ? "Actualizando..." : "Actualizar ahora"}
+                  </button>
+                )}
+                {onClear && total > 0 && (
+                  <button
+                    onClick={onClear}
+                    className="flex items-center gap-2 rounded-full border border-[#7a3b30] bg-[#45231c] px-4 py-2 text-xs font-bold uppercase tracking-[0.08em] text-[#f4bab0] transition hover:border-[#a84d3e] hover:bg-[#572b22]"
+                    title="Eliminar todas las respuestas de prueba"
+                  >
+                    <Icon name="trash" className="h-3.5 w-3.5 text-[#f4bab0]" />
+                    <span>Vaciar datos</span>
                   </button>
                 )}
               </div>
@@ -927,6 +945,30 @@ export default function App() {
     return () => window.removeEventListener("hashchange", checkAdminHash);
   }, []);
 
+  async function handleClearResponses() {
+    if (
+      !window.confirm(
+        "¿Estás seguro de que deseas eliminar todas las respuestas registradas? Esta acción limpiará la base de datos y dejará la encuesta lista para los clientes reales."
+      )
+    ) {
+      return;
+    }
+    try {
+      if (supabase) {
+        await supabase
+          .from("survey_responses")
+          .delete()
+          .neq("id", "00000000-0000-0000-0000-000000000000");
+      }
+      localStorage.removeItem(storageKey);
+      setResponses([]);
+    } catch (err) {
+      console.error("Error al eliminar respuestas:", err);
+      localStorage.removeItem(storageKey);
+      setResponses([]);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#f7f4ee] text-[#3a302b]">
       <Header view={view} onNavigate={navigate} />
@@ -936,6 +978,7 @@ export default function App() {
         <Results
           responses={responses}
           onRefresh={() => fetchResponses(true)}
+          onClear={handleClearResponses}
           isRefreshing={isRefreshing}
           lastUpdated={lastUpdated}
         />
