@@ -189,7 +189,7 @@ function Header({
 function Survey({
   onSubmit,
 }: {
-  onSubmit: (response: Omit<Response, "id" | "createdAt">) => void;
+  onSubmit: (response: Omit<Response, "id" | "createdAt">) => Promise<void> | void;
 }) {
   const [answers, setAnswers] = useState({
     q1: "",
@@ -199,6 +199,7 @@ function Survey({
     q5: "",
     q6: "",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   const answered = [
@@ -229,7 +230,7 @@ function Survey({
     setError("");
   }
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
     if (
       !answers.q1 ||
@@ -241,7 +242,14 @@ function Survey({
       setError("Completa las preguntas de selección para enviar tu opinión.");
       return;
     }
-    onSubmit(answers);
+    try {
+      setIsSubmitting(true);
+      await onSubmit(answers);
+    } catch {
+      setError("Hubo un error al enviar tu respuesta. Por favor intenta de nuevo.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -414,9 +422,10 @@ function Survey({
           </div>
           <button
             type="submit"
-            className="flex w-full items-center justify-center gap-3 rounded-full bg-[#b87443] px-7 py-4 text-sm font-bold uppercase tracking-[0.12em] transition hover:bg-[#c98553] sm:w-auto"
+            disabled={isSubmitting}
+            className="flex w-full items-center justify-center gap-3 rounded-full bg-[#b87443] px-7 py-4 text-sm font-bold uppercase tracking-[0.12em] transition hover:bg-[#c98553] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
-            Enviar opinión
+            {isSubmitting ? "Enviando respuesta..." : "Enviar opinión"}
             <Icon name="arrow" />
           </button>
         </div>
@@ -755,10 +764,29 @@ export default function App() {
     }
 
     void loadResponses();
+
+    const channel = supabase
+      .channel("survey_realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "survey_responses" },
+        (payload) => {
+          if (active && payload.new) {
+            const newRes = mapDatabaseResponse(payload.new as DatabaseResponse);
+            setResponses((current) => {
+              if (current.some((r) => r.id === newRes.id)) return current;
+              return [...current, newRes];
+            });
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       active = false;
+      void supabase.removeChannel(channel);
     };
-  }, []);
+  }, [view]);
 
   async function saveResponse(answer: Omit<Response, "id" | "createdAt">) {
     if (supabase) {
