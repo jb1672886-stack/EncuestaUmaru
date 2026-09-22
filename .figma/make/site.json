@@ -6,7 +6,7 @@
     "icon": "https://encuesta-umaru-5ie5.vercel.app/logo.png"
   },
   "openGraph": {
-    "image": "https://encuesta-umaru-5ie5.vercel.app/og-image.png"
+    "image": "https://encuesta-umaru-5ie5.vercel.app/og-image.jpg"
   },
   "robots": {
     "index": true

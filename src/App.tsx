@@ -91,7 +91,7 @@ const questions: Question[] = [
 ];
 
 const storageKey = "umaru-survey-responses";
-const adminPhrase = "HotelUmaru2026";
+const adminPhrase = "Umaru2026";
 
 function mapDatabaseResponse(response: DatabaseResponse): Response {
   return {
