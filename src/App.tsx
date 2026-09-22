@@ -176,19 +176,19 @@ function Header({
   };
 
   return (
-    <header className="border-b border-[#ded8ce] bg-[#f7f4ee]/95 backdrop-blur">
-      <div className="mx-auto flex h-[86px] max-w-7xl items-center justify-between px-5 sm:px-8">
+    <header className="relative border-b border-[#ded8ce] bg-[#f7f4ee]/95 backdrop-blur">
+      <div className="mx-auto flex h-[94px] max-w-7xl items-center justify-center px-5 sm:px-8">
         <button
-          className="flex items-center gap-3 text-left"
+          className="flex items-center justify-center gap-3.5 text-center cursor-pointer transition hover:opacity-90 max-w-full"
           onClick={handleLogoClick}
           aria-label="Ir al inicio"
         >
           <img
             src={logoBase64}
             alt="Umaru Hotel"
-            className="h-14 w-auto max-h-14 max-w-[130px] object-contain mix-blend-multiply"
+            className="h-16 sm:h-20 w-auto max-w-[220px] sm:max-w-[300px] object-contain mix-blend-multiply"
           />
-          <span className="hidden border-l border-[#cfc6b8] pl-4 text-[10px] font-bold uppercase tracking-[0.22em] text-[#765e50] sm:block">
+          <span className="hidden border-l border-[#cfc6b8] pl-4 text-left text-[10px] font-bold uppercase tracking-[0.24em] text-[#765e50] sm:block">
             Nueva propuesta
             <br />
             gastronómica
@@ -198,10 +198,10 @@ function Header({
           <button
             onClick={() => onNavigate("survey")}
             aria-label="Volver a la encuesta"
-            className="group flex items-center gap-2 rounded-full border border-[#c8bfb1] px-4 py-2.5 text-xs font-bold uppercase tracking-[0.1em] text-[#463b35] transition hover:border-[#98592f] hover:bg-white"
+            className="absolute right-5 sm:right-8 group flex items-center gap-2 rounded-full border border-[#c8bfb1] px-4 py-2 text-xs font-bold uppercase tracking-[0.1em] text-[#463b35] transition hover:border-[#98592f] hover:bg-white bg-[#f7f4ee]"
           >
             <Icon name="survey" />
-            <span className="hidden sm:inline">Volver a la encuesta</span>
+            <span className="hidden sm:inline">Volver</span>
           </button>
         ) : null}
       </div>
@@ -697,21 +697,8 @@ function Results({
 }
 
 function ThankYou() {
-  const [closed, setClosed] = useState(false);
-
-  function handleClose() {
-    try {
-      window.close();
-    } catch {}
-    try {
-      window.open("", "_self");
-      window.close();
-    } catch {}
-    setClosed(true);
-  }
-
   return (
-    <main className="flex min-h-[calc(100vh-86px)] items-center justify-center bg-[#f1eee8] px-5 py-16">
+    <main className="flex min-h-[calc(100vh-94px)] items-center justify-center bg-[#f1eee8] px-5 py-16">
       <div className="w-full max-w-2xl rounded-3xl border border-[#ddd5ca] bg-white px-7 py-14 text-center shadow-[0_20px_80px_rgba(61,45,35,0.08)] sm:px-16">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#f5e9df] text-[#a56236]">
           <Icon name="check" className="h-8 w-8" />
@@ -726,19 +713,8 @@ function ThankYou() {
           Tu opinión ya forma parte de la nueva experiencia UMARU. La respuesta
           se guardó de forma anónima.
         </p>
-        <div className="mt-9 flex flex-col items-center justify-center gap-3">
-          <button
-            onClick={handleClose}
-            className="inline-flex items-center justify-center gap-2.5 rounded-full bg-[#3a302b] px-9 py-3.5 text-sm font-bold text-white transition hover:bg-[#51433c]"
-          >
-            <Icon name="close" className="h-4 w-4" />
-            Cerrar
-          </button>
-          {closed && (
-            <p className="text-xs text-[#8c7e76]">
-              Encuesta finalizada. Ya puedes cerrar esta pestaña.
-            </p>
-          )}
+        <div className="mt-9 inline-flex items-center justify-center rounded-full border border-[#d8d0c4] bg-[#f8f5ef] px-7 py-3.5 text-sm font-medium text-[#786b64] shadow-xs">
+          Encuesta finalizada con éxito. Ya puedes cerrar esta pestaña.
         </div>
       </div>
     </main>
@@ -806,7 +782,24 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
 }
 
 export default function App() {
-  const [view, setView] = useState<View>("survey");
+  const [view, setView] = useState<View>(() => {
+    const hash = typeof window !== "undefined" ? window.location.hash.toLowerCase() : "";
+    const search = typeof window !== "undefined" ? window.location.search.toLowerCase() : "";
+    if (hash === "#admin" || hash === "#admin-login" || search.includes("admin")) {
+      return "admin-login";
+    }
+    if (hash === "#results") return "results";
+    if (hash === "#thanks") return "thanks";
+
+    try {
+      const saved = sessionStorage.getItem("umaru-active-view") as View | null;
+      if (saved && ["survey", "admin-login", "results", "thanks"].includes(saved)) {
+        return saved;
+      }
+    } catch {}
+
+    return "survey";
+  });
   const [responses, setResponses] = useState<Response[]>(() => {
     try {
       return JSON.parse(localStorage.getItem(storageKey) || "[]");
@@ -880,6 +873,27 @@ export default function App() {
     };
   }, [fetchResponses, view]);
 
+  function navigate(nextView: View) {
+    try {
+      sessionStorage.setItem("umaru-active-view", nextView);
+    } catch {}
+
+    if (nextView === "results") {
+      window.location.hash = "results";
+    } else if (nextView === "thanks") {
+      window.location.hash = "thanks";
+    } else if (nextView === "admin-login") {
+      window.location.hash = "admin";
+    } else if (nextView === "survey") {
+      if (window.location.hash) {
+        history.pushState(null, "", window.location.pathname);
+      }
+    }
+
+    setView(nextView);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   async function saveResponse(answer: Omit<Response, "id" | "createdAt">) {
     if (supabase) {
       const { data, error } = await supabase
@@ -893,8 +907,7 @@ export default function App() {
         const next = [...responses, response];
         setResponses(next);
         localStorage.setItem(storageKey, JSON.stringify(next));
-        setView("thanks");
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        navigate("thanks");
         return;
       }
 
@@ -909,8 +922,7 @@ export default function App() {
     const next = [...responses, response];
     setResponses(next);
     localStorage.setItem(storageKey, JSON.stringify(next));
-    setView("thanks");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    navigate("thanks");
   }
 
   // Check hash or URL search parameters for admin access (e.g. #admin)
@@ -918,22 +930,27 @@ export default function App() {
     function checkAdminHash() {
       const hash = window.location.hash.toLowerCase();
       const search = window.location.search.toLowerCase();
-      if (hash === "#admin" || search.includes("admin")) {
+      if (hash === "#admin" || hash === "#admin-login" || search.includes("admin")) {
         setView("admin-login");
+        try {
+          sessionStorage.setItem("umaru-active-view", "admin-login");
+        } catch {}
+      } else if (hash === "#results") {
+        setView("results");
+        try {
+          sessionStorage.setItem("umaru-active-view", "results");
+        } catch {}
+      } else if (hash === "#thanks") {
+        setView("thanks");
+        try {
+          sessionStorage.setItem("umaru-active-view", "thanks");
+        } catch {}
       }
     }
     checkAdminHash();
     window.addEventListener("hashchange", checkAdminHash);
     return () => window.removeEventListener("hashchange", checkAdminHash);
   }, []);
-
-  function navigate(nextView: View) {
-    if (nextView === "survey" && window.location.hash === "#admin") {
-      history.pushState(null, "", window.location.pathname);
-    }
-    setView(nextView);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
 
   return (
     <div className="min-h-screen bg-[#f7f4ee] text-[#3a302b]">
