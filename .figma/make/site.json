@@ -1,7 +1,15 @@
 {
-  "description": "Collect anonymous survey responses for Umaru restaurant, allowing the organizer to view and count votes for each question efficiently.",
+  "title": "Encuesta de Satisfacción · UMARU Hotel",
+  "description": "Tu experiencia nos ayuda a seguir mejorando. Responde nuestra encuesta.",
+  "language": "es",
+  "icons": {
+    "icon": "https://encuesta-umaru-5ie5.vercel.app/logo.png"
+  },
+  "openGraph": {
+    "image": "https://encuesta-umaru-5ie5.vercel.app/og-image.png"
+  },
   "robots": {
-    "index": false
+    "index": true
   },
   "accessibility": {
     "addBypassLinks": false,
