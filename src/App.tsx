@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import logo from "./public/logo.png";
+import logo from "./imports/image.png";
 import { supabase } from "./lib/supabase";
 
 type View = "survey" | "admin-login" | "results" | "thanks";
@@ -164,7 +164,13 @@ function Header({
           <img
             src={logo}
             alt="Umaru Hotel"
-            className="h-14 w-20 object-cover object-center mix-blend-multiply"
+            className="h-14 w-auto max-h-14 max-w-[130px] object-contain mix-blend-multiply"
+            onError={(e) => {
+              const target = e.currentTarget;
+              if (target.src !== "/image.png" && !target.src.endsWith("/image.png")) {
+                target.src = "/image.png";
+              }
+            }}
           />
           <span className="hidden border-l border-[#cfc6b8] pl-4 text-[10px] font-bold uppercase tracking-[0.22em] text-[#765e50] sm:block">
             Nueva propuesta
