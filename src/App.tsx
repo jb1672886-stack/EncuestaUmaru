@@ -1,7 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { logoBase64 } from "./lib/logoBase64";
 import { supabase } from "./lib/supabase";
-import * as XLSX from "xlsx";
+import { exportSurveyToExcel } from "./lib/exportExcel";
 
 type View = "survey" | "admin-login" | "results" | "thanks";
 
@@ -443,6 +443,9 @@ function Results({
   isRefreshing?: boolean;
   lastUpdated?: Date;
 }) {
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
   const total = responses.length;
   const today = new Date().toDateString();
   const todayCount = responses.filter(
@@ -511,51 +514,92 @@ function Results({
                   </button>
                 )}
                 {onClear && total > 0 && (
-                  <>
-                    <button
-                      onClick={() => {
-                        // Generate Excel file from responses
-                        const ws = XLSX.utils.json_to_sheet(responses.map((r) => ({
-                          id: r.id,
-                          createdAt: r.createdAt,
-                          q1: r.q1,
-                          q2: r.q2,
-                          q3: r.q3.join(', '),
-                          q4: r.q4,
-                          q5: r.q5,
-                          q6: r.q6,
-                        })));
-                        const wb = XLSX.utils.book_new();
-                        XLSX.utils.book_append_sheet(wb, ws, 'Responses');
-                        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-                        const blob = new Blob([wbout], { type: 'application/octet-stream' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = 'encuestas.xlsx';
-                        a.click();
-                        URL.revokeObjectURL(url);
-                      }}
-                      className="flex items-center gap-2 rounded-full border border-[#5a3b30] bg-[#56231c] px-4 py-2 text-xs font-bold uppercase tracking-[0.08em] text-[#f4bab0] transition hover:border-[#a84d3e] hover:bg-[#572b22]"
-                    >
-                      <Icon name="download" className="h-3.5 w-3.5" />
-                      Exportar a Excel
-                    </button>
-                    <button
-                      onClick={onClear}
-                      className="flex items-center gap-2 rounded-full border border-[#7a3b30] bg-[#45231c] px-4 py-2 text-xs font-bold uppercase tracking-[0.08em] text-[#f4bab0] transition hover:border-[#a84d3e] hover:bg-[#572b22]"
-                      title="Eliminar todas las respuestas de prueba"
-                    >
-                      <Icon name="trash" className="h-3.5 w-3.5 text-[#f4bab0]" />
-                      <span>Vaciar datos</span>
-                    </button>
-                  </>
+                  <button
+                    onClick={onClear}
+                    className="flex items-center gap-2 rounded-full border border-[#7a3b30] bg-[#45231c] px-4 py-2 text-xs font-bold uppercase tracking-[0.08em] text-[#f4bab0] transition hover:border-[#a84d3e] hover:bg-[#572b22]"
+                    title="Eliminar todas las respuestas de prueba"
+                  >
+                    <Icon name="trash" className="h-3.5 w-3.5 text-[#f4bab0]" />
+                    <span>Vaciar datos</span>
+                  </button>
                 )}
               </div>
             </div>
           </div>
         </div>
       </section>
+
+      {/* Export Section */}
+      {total > 0 && (
+        <section className="border-b border-[#d8d1c7] bg-[#f7f4ee]">
+          <div className="mx-auto max-w-7xl px-5 py-6 sm:px-8">
+            <div className="rounded-2xl border border-[#ddd6cd] bg-white p-6 sm:p-8">
+              <h2 className="mb-1 text-lg font-bold text-[#3a302b]">Exportar datos a Excel</h2>
+              <p className="mb-6 text-sm text-[#83776f]">Descarga un reporte completo con respuestas detalladas, cuadros estadísticos y propuestas de clientes.</p>
+
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
+                {/* Export all */}
+                <button
+                  onClick={() => exportSurveyToExcel(responses, questions)}
+                  className="flex items-center gap-2 rounded-xl bg-[#3a302b] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#51433c]"
+                >
+                  <Icon name="download" className="h-4 w-4" />
+                  Exportar todo
+                </button>
+
+                {/* Divider */}
+                <div className="hidden h-10 w-px bg-[#ddd6cd] sm:block" />
+
+                {/* Date range */}
+                <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-end">
+                  <label className="flex flex-col gap-1 text-xs font-semibold text-[#51433c]">
+                    Desde
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="rounded-xl border border-[#ddd6ce] bg-[#fcfbf9] px-3 py-2.5 text-sm text-[#463b35] outline-none transition focus:border-[#aa693d] focus:ring-2 focus:ring-[#aa693d]/10"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs font-semibold text-[#51433c]">
+                    Hasta
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="rounded-xl border border-[#ddd6ce] bg-[#fcfbf9] px-3 py-2.5 text-sm text-[#463b35] outline-none transition focus:border-[#aa693d] focus:ring-2 focus:ring-[#aa693d]/10"
+                    />
+                  </label>
+                  <button
+                    onClick={() => {
+                      if (!dateFrom && !dateTo) {
+                        alert("Selecciona al menos una fecha para filtrar.");
+                        return;
+                      }
+                      const filtered = responses.filter((r) => {
+                        const d = new Date(r.createdAt).toISOString().slice(0, 10);
+                        if (dateFrom && d < dateFrom) return false;
+                        if (dateTo && d > dateTo) return false;
+                        return true;
+                      });
+                      if (filtered.length === 0) {
+                        alert("No hay respuestas en el rango de fechas seleccionado.");
+                        return;
+                      }
+                      exportSurveyToExcel(filtered, questions);
+                    }}
+                    disabled={!dateFrom && !dateTo}
+                    className="flex items-center gap-2 rounded-xl border border-[#b87545] bg-[#f5e9df] px-5 py-2.5 text-sm font-bold text-[#8a5230] transition hover:bg-[#eedcc9] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Icon name="download" className="h-4 w-4" />
+                    Exportar por fechas
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-12">
         <div className="mb-8 grid gap-4 sm:grid-cols-3">
