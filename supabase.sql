@@ -24,3 +24,7 @@ on public.survey_responses
 for select
 to anon
 using (true);
+
+-- Habilitar publicaciones en tiempo real en Supabase para actualizaciones instantáneas
+alter publication supabase_realtime add table public.survey_responses;
+

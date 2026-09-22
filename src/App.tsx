@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { logoBase64 } from "./lib/logoBase64";
 import { supabase } from "./lib/supabase";
 
@@ -103,7 +103,7 @@ function Icon({
   name,
   className = "h-5 w-5",
 }: {
-  name: "arrow" | "chart" | "check" | "chevron" | "lock" | "survey";
+  name: "arrow" | "chart" | "check" | "chevron" | "lock" | "refresh" | "survey";
   className?: string;
 }) {
   const paths = {
@@ -121,6 +121,9 @@ function Icon({
         <rect x="5" y="10" width="14" height="10" rx="2" />
         <path d="M8 10V7a4 4 0 0 1 8 0v3" />
       </>
+    ),
+    refresh: (
+      <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15" />
     ),
     survey: (
       <>
@@ -434,7 +437,17 @@ function Survey({
   );
 }
 
-function Results({ responses }: { responses: Response[] }) {
+function Results({
+  responses,
+  onRefresh,
+  isRefreshing,
+  lastUpdated,
+}: {
+  responses: Response[];
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
+  lastUpdated?: Date;
+}) {
   const total = responses.length;
   const today = new Date().toDateString();
   const todayCount = responses.filter(
@@ -472,12 +485,37 @@ function Results({ responses }: { responses: Response[] }) {
                 Resultados de la encuesta
               </h1>
               <p className="mt-3 max-w-xl text-sm leading-6 text-[#cfc5bf] sm:text-base">
-                Conteo consolidado de todas las respuestas anónimas recibidas.
+                Conteo consolidado y en tiempo real de todas las respuestas anónimas recibidas.
               </p>
             </div>
-            <div className="flex items-center gap-2 text-xs font-semibold text-[#bfb2aa]">
-              <span className="h-2 w-2 rounded-full bg-[#70a67a]" />
-              Datos actualizados en este dispositivo
+            <div className="flex flex-col items-start gap-3 sm:items-end">
+              <div className="flex items-center gap-2 rounded-full bg-[#27201c] px-3.5 py-1.5 text-xs font-semibold text-[#c8bfb8]">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#70a67a] opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#70a67a]" />
+                </span>
+                <span>En vivo · Autoactualización activa</span>
+              </div>
+              <div className="flex items-center gap-3">
+                {lastUpdated && (
+                  <span className="text-xs text-[#a3978f]">
+                    Actualizado: {lastUpdated.toLocaleTimeString()}
+                  </span>
+                )}
+                {onRefresh && (
+                  <button
+                    onClick={onRefresh}
+                    disabled={isRefreshing}
+                    className="flex items-center gap-2 rounded-full border border-[#5d4f46] bg-[#433731] px-4 py-2 text-xs font-bold uppercase tracking-[0.08em] text-[#eedfd5] transition hover:border-[#aa693d] hover:bg-[#52443d] disabled:opacity-50"
+                  >
+                    <Icon
+                      name="refresh"
+                      className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin text-[#d6a37d]" : ""}`}
+                    />
+                    {isRefreshing ? "Actualizando..." : "Actualizar ahora"}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -742,51 +780,71 @@ export default function App() {
       return [];
     }
   });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
-  useEffect(() => {
+  const fetchResponses = useCallback(async (showLoading = false) => {
     if (!supabase) return;
-
-    let active = true;
-    async function loadResponses() {
+    if (showLoading) setIsRefreshing(true);
+    try {
       const { data, error } = await supabase
         .from("survey_responses")
         .select("*")
         .order("created_at", { ascending: true });
 
-      if (error) {
-        console.error("No se pudieron cargar las respuestas de Supabase:", error);
-        return;
-      }
-
-      if (active && data) {
+      if (!error && data) {
         setResponses((data as DatabaseResponse[]).map(mapDatabaseResponse));
+        setLastUpdated(new Date());
+      } else if (error) {
+        console.error("No se pudieron cargar las respuestas de Supabase:", error);
       }
+    } catch (err) {
+      console.error("Error al sincronizar respuestas:", err);
+    } finally {
+      if (showLoading) setIsRefreshing(false);
     }
+  }, []);
 
-    void loadResponses();
+  // Fetch immediately on mount and when changing view (e.g. entering results)
+  useEffect(() => {
+    fetchResponses();
+  }, [fetchResponses, view]);
+
+  // Realtime subscription + auto-polling every 4 seconds when inside admin results
+  useEffect(() => {
+    if (!supabase) return;
+
+    let active = true;
 
     const channel = supabase
-      .channel("survey_realtime")
+      .channel("survey_responses_live")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "survey_responses" },
-        (payload) => {
-          if (active && payload.new) {
-            const newRes = mapDatabaseResponse(payload.new as DatabaseResponse);
-            setResponses((current) => {
-              if (current.some((r) => r.id === newRes.id)) return current;
-              return [...current, newRes];
-            });
+        { event: "*", schema: "public", table: "survey_responses" },
+        () => {
+          if (active) {
+            fetchResponses();
           }
         }
       )
       .subscribe();
 
+    // Auto-polling interval for guaranteed live updates
+    let pollInterval: ReturnType<typeof setInterval> | null = null;
+    if (view === "results") {
+      pollInterval = setInterval(() => {
+        if (active) {
+          fetchResponses();
+        }
+      }, 4000);
+    }
+
     return () => {
       active = false;
+      if (pollInterval) clearInterval(pollInterval);
       void supabase.removeChannel(channel);
     };
-  }, [view]);
+  }, [fetchResponses, view]);
 
   async function saveResponse(answer: Omit<Response, "id" | "createdAt">) {
     if (supabase) {
@@ -831,7 +889,14 @@ export default function App() {
       <Header view={view} onNavigate={navigate} />
       {view === "survey" && <Survey onSubmit={saveResponse} />}
       {view === "admin-login" && <AdminLogin onSuccess={() => navigate("results")} />}
-      {view === "results" && <Results responses={responses} />}
+      {view === "results" && (
+        <Results
+          responses={responses}
+          onRefresh={() => fetchResponses(true)}
+          isRefreshing={isRefreshing}
+          lastUpdated={lastUpdated}
+        />
+      )}
       {view === "thanks" && <ThankYou onBack={() => navigate("survey")} />}
       <footer className="border-t border-[#4b403a] bg-[#302824] px-5 py-6 text-center text-xs tracking-wide text-[#a99d96]">
         UMARU HOTEL · Ayacucho, Perú · Encuesta anónima
