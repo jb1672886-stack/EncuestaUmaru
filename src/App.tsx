@@ -103,7 +103,7 @@ function Icon({
   name,
   className = "h-5 w-5",
 }: {
-  name: "arrow" | "chart" | "check" | "chevron" | "lock" | "refresh" | "survey";
+  name: "arrow" | "chart" | "check" | "chevron" | "close" | "lock" | "refresh" | "survey";
   className?: string;
 }) {
   const paths = {
@@ -116,6 +116,7 @@ function Icon({
     ),
     check: <path d="m5 12 4 4L19 6" />,
     chevron: <path d="m9 18 6-6-6-6" />,
+    close: <path d="M18 6 6 18M6 6l12 12" />,
     lock: (
       <>
         <rect x="5" y="10" width="14" height="10" rx="2" />
@@ -695,7 +696,20 @@ function Results({
   );
 }
 
-function ThankYou({ onBack }: { onBack: () => void }) {
+function ThankYou() {
+  const [closed, setClosed] = useState(false);
+
+  function handleClose() {
+    try {
+      window.close();
+    } catch {}
+    try {
+      window.open("", "_self");
+      window.close();
+    } catch {}
+    setClosed(true);
+  }
+
   return (
     <main className="flex min-h-[calc(100vh-86px)] items-center justify-center bg-[#f1eee8] px-5 py-16">
       <div className="w-full max-w-2xl rounded-3xl border border-[#ddd5ca] bg-white px-7 py-14 text-center shadow-[0_20px_80px_rgba(61,45,35,0.08)] sm:px-16">
@@ -712,13 +726,20 @@ function ThankYou({ onBack }: { onBack: () => void }) {
           Tu opinión ya forma parte de la nueva experiencia UMARU. La respuesta
           se guardó de forma anónima.
         </p>
-        <button
-          onClick={onBack}
-          className="mt-9 inline-flex items-center gap-2 rounded-full bg-[#3a302b] px-7 py-3.5 text-sm font-bold text-white transition hover:bg-[#51433c]"
-        >
-          Volver al inicio
-          <Icon name="chevron" />
-        </button>
+        <div className="mt-9 flex flex-col items-center justify-center gap-3">
+          <button
+            onClick={handleClose}
+            className="inline-flex items-center justify-center gap-2.5 rounded-full bg-[#3a302b] px-9 py-3.5 text-sm font-bold text-white transition hover:bg-[#51433c]"
+          >
+            <Icon name="close" className="h-4 w-4" />
+            Cerrar
+          </button>
+          {closed && (
+            <p className="text-xs text-[#8c7e76]">
+              Encuesta finalizada. Ya puedes cerrar esta pestaña.
+            </p>
+          )}
+        </div>
       </div>
     </main>
   );
@@ -927,7 +948,7 @@ export default function App() {
           lastUpdated={lastUpdated}
         />
       )}
-      {view === "thanks" && <ThankYou onBack={() => navigate("survey")} />}
+      {view === "thanks" && <ThankYou />}
       <footer className="border-t border-[#4b403a] bg-[#302824] px-5 py-6 text-center text-xs tracking-wide text-[#a99d96]">
         <span>UMARU HOTEL</span>
         <button
