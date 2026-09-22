@@ -1,0 +1,75 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Libre+Caslon+Display:ital@0;1&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "DM Sans", sans-serif;
+  --font-display: "Libre Caslon Display", Georgia, serif;
+}
+
+:root {
+  font-family: "DM Sans", sans-serif;
+  color: #3a302b;
+  background: #f7f4ee;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+label,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  cursor: pointer;
+}
+
+.font-display {
+  font-family: "Libre Caslon Display", Georgia, serif;
+}
+
+.question-card {
+  box-shadow: 0 7px 30px rgb(63 47 37 / 4%);
+}
+
+.option-card:has(input:focus-visible) {
+  outline: 2px solid #a86438;
+  outline-offset: 2px;
+}
+
+.hero-orbit {
+  position: absolute;
+  border: 1px solid rgb(167 97 52 / 14%);
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.hero-orbit-one {
+  width: 460px;
+  height: 460px;
+  top: -245px;
+  right: 5%;
+}
+
+.hero-orbit-two {
+  width: 680px;
+  height: 680px;
+  top: -350px;
+  right: -4%;
+}
+
+@media (max-width: 640px) {
+  .hero-orbit-one {
+    right: -70%;
+  }
+
+  .hero-orbit-two {
+    display: none;
+  }
+}

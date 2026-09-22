@@ -1,0 +1,10 @@
+{
+  "description": "Collect anonymous survey responses for Umaru restaurant, allowing the organizer to view and count votes for each question efficiently.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
