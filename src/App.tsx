@@ -1028,13 +1028,27 @@ export default function App() {
     }
     try {
       if (supabase) {
-        await supabase
+        const { data, error } = await supabase
           .from("survey_responses")
           .delete()
-          .neq("id", "00000000-0000-0000-0000-000000000000");
+          .not("id", "is", null)
+          .select();
+
+        if (error) {
+          console.error("Error al eliminar respuestas en Supabase:", error);
+          alert("Error al eliminar en la base de datos: " + error.message);
+          return;
+        }
+
+        if (responses.length > 0 && (!data || data.length === 0)) {
+          alert(
+            "Nota: Para que se eliminen en Supabase, debes ejecutar el script de políticas de eliminación (DELETE policy) en el SQL Editor de tu panel de Supabase. Revisa el archivo supabase.sql."
+          );
+        }
       }
       localStorage.removeItem(storageKey);
       setResponses([]);
+      await fetchResponses(true);
     } catch (err) {
       console.error("Error al eliminar respuestas:", err);
       localStorage.removeItem(storageKey);
