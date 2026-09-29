@@ -8,6 +8,7 @@ type Response = {
   q3: string;
   q4: string;
   q5: string;
+  q5Other: string;
   q6: string;
   q7: string;
   q8: string;
@@ -36,6 +37,7 @@ export function exportSurveyToExcel(responses: Response[], questions: Question[]
     "ID de Registro",
     "Fecha y Hora",
     ...questions.map((question) => `P${question.number}. ${question.title}`),
+    "Motivo indicado (P5: Otro)",
   ];
 
   const rawDataRows = responses.map((r, index) => {
@@ -49,6 +51,7 @@ export function exportSurveyToExcel(responses: Response[], questions: Question[]
       r.id,
       dateFormatted,
       ...questions.map((question) => r[question.id] || "Sin responder"),
+      r.q5Other || "",
     ];
   });
 
@@ -60,6 +63,7 @@ export function exportSurveyToExcel(responses: Response[], questions: Question[]
     { wch: 38 }, // ID
     { wch: 22 }, // Fecha
     ...questions.map(() => ({ wch: 36 })),
+    { wch: 36 },
   ];
 
   XLSX.utils.book_append_sheet(wb, wsRaw, "Respuestas Detalladas");

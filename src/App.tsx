@@ -13,13 +13,15 @@ type Response = {
   q3: string;
   q4: string;
   q5: string;
+  q5Other: string;
   q6: string;
   q7: string;
   q8: string;
 };
 
-type DatabaseResponse = Omit<Response, "createdAt"> & {
+type DatabaseResponse = Omit<Response, "createdAt" | "q5Other"> & {
   created_at: string;
+  q5_other?: string;
 };
 
 type Question = {
@@ -103,6 +105,8 @@ function normalizeStoredResponse(value: unknown): Response {
   const stored = value as Partial<Record<QuestionId, string | string[]>> & {
     id?: string;
     createdAt?: string;
+    q5Other?: string;
+    q5_other?: string;
   };
   const answer = (id: QuestionId) => {
     const value = stored[id];
@@ -117,6 +121,7 @@ function normalizeStoredResponse(value: unknown): Response {
     q3: answer("q3"),
     q4: answer("q4"),
     q5: answer("q5"),
+    q5Other: stored.q5Other || stored.q5_other || "",
     q6: answer("q6"),
     q7: answer("q7"),
     q8: answer("q8"),
@@ -130,6 +135,7 @@ function mapDatabaseResponse(response: DatabaseResponse): Response {
   return normalizeStoredResponse({
     ...response,
     createdAt: response.created_at,
+    q5Other: response.q5_other || "",
   });
 }
 
@@ -260,6 +266,7 @@ function Survey({
     q3: "",
     q4: "",
     q5: "",
+    q5Other: "",
     q6: "",
     q7: "",
     q8: "",
@@ -268,7 +275,11 @@ function Survey({
   const [error, setError] = useState("");
 
   function setSingle(id: QuestionId, value: string) {
-    setAnswers((current) => ({ ...current, [id]: value }));
+    setAnswers((current) => ({
+      ...current,
+      [id]: value,
+      ...(id === "q5" && value !== "Otro" ? { q5Other: "" } : {}),
+    }));
     setError("");
   }
 
@@ -276,6 +287,10 @@ function Survey({
     event.preventDefault();
     if (questions.some((question) => !answers[question.id].trim())) {
       setError("Completa todas las preguntas para enviar tu opinión.");
+      return;
+    }
+    if (answers.q5 === "Otro" && !answers.q5Other.trim()) {
+      setError("Cuéntanos cuál es el motivo al seleccionar “Otro”.");
       return;
     }
     try {
@@ -339,39 +354,60 @@ function Survey({
                 </div>
               </div>
               {question.options ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {question.options.map((option) => {
-                    const isChecked = answers[question.id] === option;
-                    return (
-                      <label
-                        key={option}
-                        className={`option-card flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-4 text-sm leading-5 transition ${isChecked
-                            ? "border-[#a86438] bg-[#fbf4ed] text-[#4a3326]"
-                            : "border-[#e0dbd3] bg-[#fcfbf9] text-[#615750] hover:border-[#bda78f]"
-                          }`}
-                      >
-                        <input
-                          className="sr-only"
-                          type="radio"
-                          name={question.id}
-                          checked={isChecked}
-                          onChange={() => setSingle(question.id, option)}
-                        />
-                        <span
-                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${isChecked
-                              ? "border-[#a86438] bg-[#a86438] text-white"
-                              : "border-[#b9b0a6] bg-white"
+                <>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {question.options.map((option) => {
+                      const isChecked = answers[question.id] === option;
+                      return (
+                        <label
+                          key={option}
+                          className={`option-card flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-4 text-sm leading-5 transition ${isChecked
+                              ? "border-[#a86438] bg-[#fbf4ed] text-[#4a3326]"
+                              : "border-[#e0dbd3] bg-[#fcfbf9] text-[#615750] hover:border-[#bda78f]"
                             }`}
                         >
-                          {isChecked && (
-                            <Icon name="check" className="h-3.5 w-3.5" />
-                          )}
-                        </span>
-                        {option}
-                      </label>
-                    );
-                  })}
-                </div>
+                          <input
+                            className="sr-only"
+                            type="radio"
+                            name={question.id}
+                            checked={isChecked}
+                            onChange={() => setSingle(question.id, option)}
+                          />
+                          <span
+                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${isChecked
+                                ? "border-[#a86438] bg-[#a86438] text-white"
+                                : "border-[#b9b0a6] bg-white"
+                              }`}
+                          >
+                            {isChecked && (
+                              <Icon name="check" className="h-3.5 w-3.5" />
+                            )}
+                          </span>
+                          {option}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {question.id === "q5" && answers.q5 === "Otro" && (
+                    <label className="mt-5 block text-sm font-semibold text-[#51433c]">
+                      ¿Cuál es el motivo?
+                      <input
+                        type="text"
+                        value={answers.q5Other}
+                        onChange={(event) =>
+                          setAnswers((current) => ({
+                            ...current,
+                            q5Other: event.target.value,
+                          }))
+                        }
+                        required
+                        maxLength={180}
+                        placeholder="Escribe brevemente el motivo..."
+                        className="mt-2 w-full rounded-xl border border-[#ddd6ce] bg-[#fcfbf9] px-4 py-3 text-sm font-normal text-[#463b35] outline-none transition placeholder:text-[#aaa099] focus:border-[#aa693d] focus:ring-2 focus:ring-[#aa693d]/10"
+                      />
+                    </label>
+                  )}
+                </>
               ) : (
                 <textarea
                   value={answers[question.id]}
@@ -700,6 +736,31 @@ function Results({
                     );
                   })}
                 </div>
+                {question.id === "q5" && (
+                  <div className="mt-7 border-t border-[#e8e2da] pt-5">
+                    <h3 className="mb-3 text-sm font-semibold text-[#51433c]">
+                      Motivos indicados en “Otro”
+                    </h3>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {responses.filter((response) => response.q5Other.trim()).length ? (
+                        responses
+                          .filter((response) => response.q5Other.trim())
+                          .map((response) => (
+                            <p
+                              key={response.id}
+                              className="rounded-lg bg-[#faf8f5] px-4 py-3 text-sm text-[#665a53]"
+                            >
+                              {response.q5Other}
+                            </p>
+                          ))
+                      ) : (
+                        <p className="text-sm text-[#90857e]">
+                          Aún no hay motivos escritos.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </section>
             );
           })}
@@ -954,10 +1015,11 @@ export default function App() {
   }
 
   async function saveResponse(answer: Omit<Response, "id" | "createdAt">) {
+    const { q5Other, ...databaseAnswer } = answer;
     if (supabase) {
       const { data, error } = await supabase
         .from("survey_responses")
-        .insert(answer)
+        .insert({ ...databaseAnswer, q5_other: q5Other })
         .select()
         .single();
 

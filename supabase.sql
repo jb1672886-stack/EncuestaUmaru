@@ -6,12 +6,14 @@ create table if not exists public.survey_responses (
   q3 text not null default '',
   q4 text not null,
   q5 text not null,
+  q5_other text not null default '',
   q6 text not null default '',
   q7 text not null default '',
   q8 text not null default ''
 );
 
 alter table public.survey_responses
+  add column if not exists q5_other text not null default '',
   add column if not exists q7 text not null default '',
   add column if not exists q8 text not null default '';
 
@@ -56,6 +58,17 @@ to anon
 using (true);
 
 -- Habilitar publicaciones en tiempo real en Supabase para actualizaciones instantáneas
-alter publication supabase_realtime add table public.survey_responses;
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'survey_responses'
+  ) then
+    alter publication supabase_realtime add table public.survey_responses;
+  end if;
+end $$;
 
 
