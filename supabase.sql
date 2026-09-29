@@ -3,11 +3,34 @@ create table if not exists public.survey_responses (
   created_at timestamptz not null default now(),
   q1 text not null,
   q2 text not null,
-  q3 text[] not null default '{}',
+  q3 text not null default '',
   q4 text not null,
   q5 text not null,
-  q6 text not null default ''
+  q6 text not null default '',
+  q7 text not null default '',
+  q8 text not null default ''
 );
+
+alter table public.survey_responses
+  add column if not exists q7 text not null default '',
+  add column if not exists q8 text not null default '';
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'survey_responses'
+      and column_name = 'q3'
+      and data_type = 'ARRAY'
+  ) then
+    alter table public.survey_responses alter column q3 drop default;
+    alter table public.survey_responses
+      alter column q3 type text using array_to_string(q3, ', ');
+    alter table public.survey_responses alter column q3 set default '';
+  end if;
+end $$;
 
 alter table public.survey_responses enable row level security;
 

@@ -10,10 +10,12 @@ type Response = {
   createdAt: string;
   q1: string;
   q2: string;
-  q3: string[];
+  q3: string;
   q4: string;
   q5: string;
   q6: string;
+  q7: string;
+  q8: string;
 };
 
 type DatabaseResponse = Omit<Response, "createdAt"> & {
@@ -21,12 +23,12 @@ type DatabaseResponse = Omit<Response, "createdAt"> & {
 };
 
 type Question = {
-  id: "q1" | "q2" | "q3" | "q4" | "q5";
+  id: "q1" | "q2" | "q3" | "q4" | "q5" | "q6" | "q7" | "q8";
   number: string;
   title: string;
   hint?: string;
-  options: string[];
-  multiple?: boolean;
+  options?: string[];
+  maxLength?: number;
 };
 
 const questions: Question[] = [
@@ -34,70 +36,101 @@ const questions: Question[] = [
     id: "q1",
     number: "01",
     title: "¿Con qué frecuencia visitas UMARU?",
-    options: [
-      "Es mi primera vez",
-      "Una vez al mes o más",
-      "Cada 2-3 meses",
-      "Ocasionalmente",
-    ],
+    options: ["Primera vez", "Mensual", "Cada 2–3 meses", "Casi nunca"],
   },
   {
     id: "q2",
     number: "02",
-    title:
-      "¿Qué tipo de propuesta te gustaría encontrar con mayor frecuencia en nuestra carta?",
+    title: "¿Qué te gustaría encontrar con mayor frecuencia en nuestra carta?",
     options: [
       "Carnes y parrillas",
-      "Comida tradicional ayacuchana / peruana",
-      "Pastas y cocina italiana",
-      "Opciones ligeras y saludables",
-      "Una combinación de varias propuestas",
+      "Comida tradicional",
+      "Platos de autor",
+      "Pastas y opciones italianas",
+      "Opciones ligeras",
     ],
   },
   {
     id: "q3",
     number: "03",
-    title: "Al elegir un restaurante, ¿qué es lo más importante para ti?",
-    hint: "Elige hasta 2 opciones",
-    multiple: true,
-    options: [
-      "Sabor y calidad",
-      "Precio",
-      "Buena porción",
-      "Atención",
-      "Ambiente y experiencia",
-      "Presentación de los platos",
-    ],
+    title: "Menciona 2 platos que te motivarían a venir a UMARU esta semana.",
+    hint: "Respuesta abierta breve",
+    maxLength: 180,
   },
   {
     id: "q4",
     number: "04",
-    title:
-      "¿Cuánto pagarías normalmente por un buen plato principal en UMARU?",
-    options: ["S/ 20-29", "S/ 30-39", "S/ 40-49", "S/ 50 a más"],
+    title: "¿Qué valoras más al elegir un restaurante?",
+    options: ["Sabor", "Porción", "Atención", "Ambiente", "Presentación"],
   },
   {
     id: "q5",
     number: "05",
-    title: "¿Qué te motivaría más a volver a UMARU?",
+    title: "¿Cuál es el principal motivo por el que no visitas UMARU más seguido?",
     options: [
-      "Una nueva carta y nuevos platos",
-      "Promociones o combos",
-      "Cortesías y beneficios",
-      "Experiencias especiales",
-      "Programa de cliente frecuente",
+      "La carta",
+      "Ubicación",
+      "Horarios",
+      "Experiencia anterior",
+      "Otro",
     ],
   },
+  {
+    id: "q6",
+    number: "06",
+    title: "¿Con quién visitarías UMARU?",
+    options: ["Pareja", "Familia", "Amigos", "Trabajo", "Solo(a)"],
+  },
+  {
+    id: "q7",
+    number: "07",
+    title: "¿Qué tipo de música prefieres escuchar a la hora del almuerzo?",
+    hint: "Respuesta abierta breve",
+    maxLength: 120,
+  },
+  {
+    id: "q8",
+    number: "08",
+    title:
+      "¿Te gustaría encontrar en la carta de UMARU una mayor presencia de platos inspirados en la gastronomía típica ayacuchana?",
+    options: ["Sí", "Tal vez", "No"],
+  },
 ];
+
+type QuestionId = Question["id"];
+
+function normalizeStoredResponse(value: unknown): Response {
+  const stored = value as Partial<Record<QuestionId, string | string[]>> & {
+    id?: string;
+    createdAt?: string;
+  };
+  const answer = (id: QuestionId) => {
+    const value = stored[id];
+    return Array.isArray(value) ? value.join(", ") : value || "";
+  };
+
+  return {
+    id: stored.id || crypto.randomUUID(),
+    createdAt: stored.createdAt || new Date().toISOString(),
+    q1: answer("q1"),
+    q2: answer("q2"),
+    q3: answer("q3"),
+    q4: answer("q4"),
+    q5: answer("q5"),
+    q6: answer("q6"),
+    q7: answer("q7"),
+    q8: answer("q8"),
+  };
+}
 
 const storageKey = "umaru-survey-responses";
 const adminPhrase = "Umaru2026";
 
 function mapDatabaseResponse(response: DatabaseResponse): Response {
-  return {
+  return normalizeStoredResponse({
     ...response,
     createdAt: response.created_at,
-  };
+  });
 }
 
 function Icon({
@@ -224,43 +257,25 @@ function Survey({
   const [answers, setAnswers] = useState({
     q1: "",
     q2: "",
-    q3: [] as string[],
+    q3: "",
     q4: "",
     q5: "",
     q6: "",
+    q7: "",
+    q8: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  function setSingle(id: Question["id"], value: string) {
+  function setSingle(id: QuestionId, value: string) {
     setAnswers((current) => ({ ...current, [id]: value }));
-    setError("");
-  }
-
-  function toggleMultiple(value: string) {
-    setAnswers((current) => {
-      const selected = current.q3.includes(value);
-      if (!selected && current.q3.length >= 2) return current;
-      return {
-        ...current,
-        q3: selected
-          ? current.q3.filter((item) => item !== value)
-          : [...current.q3, value],
-      };
-    });
     setError("");
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (
-      !answers.q1 ||
-      !answers.q2 ||
-      !answers.q3.length ||
-      !answers.q4 ||
-      !answers.q5
-    ) {
-      setError("Completa las preguntas de selección para enviar tu opinión.");
+    if (questions.some((question) => !answers[question.id].trim())) {
+      setError("Completa todas las preguntas para enviar tu opinión.");
       return;
     }
     try {
@@ -318,92 +333,58 @@ function Survey({
                   </h2>
                   {question.hint && (
                     <p className="mt-1 text-sm font-medium text-[#9a5d35]">
-                      {question.hint} · {answers.q3.length}/2 seleccionadas
+                      {question.hint}
                     </p>
                   )}
                 </div>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {question.options.map((option) => {
-                  const isChecked = question.multiple
-                    ? answers.q3.includes(option)
-                    : answers[question.id] === option;
-                  const disabled =
-                    question.multiple &&
-                    !isChecked &&
-                    answers.q3.length >= 2;
-                  return (
-                    <label
-                      key={option}
-                      className={`option-card flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-4 text-sm leading-5 transition ${isChecked
-                          ? "border-[#a86438] bg-[#fbf4ed] text-[#4a3326]"
-                          : "border-[#e0dbd3] bg-[#fcfbf9] text-[#615750] hover:border-[#bda78f]"
-                        } ${disabled ? "cursor-not-allowed opacity-45" : ""}`}
-                    >
-                      <input
-                        className="sr-only"
-                        type={question.multiple ? "checkbox" : "radio"}
-                        name={question.id}
-                        checked={isChecked}
-                        disabled={disabled}
-                        onChange={() =>
-                          question.multiple
-                            ? toggleMultiple(option)
-                            : setSingle(question.id, option)
-                        }
-                      />
-                      <span
-                        className={`flex h-5 w-5 shrink-0 items-center justify-center border ${question.multiple ? "rounded" : "rounded-full"
-                          } ${isChecked
-                            ? "border-[#a86438] bg-[#a86438] text-white"
-                            : "border-[#b9b0a6] bg-white"
+              {question.options ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {question.options.map((option) => {
+                    const isChecked = answers[question.id] === option;
+                    return (
+                      <label
+                        key={option}
+                        className={`option-card flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-4 text-sm leading-5 transition ${isChecked
+                            ? "border-[#a86438] bg-[#fbf4ed] text-[#4a3326]"
+                            : "border-[#e0dbd3] bg-[#fcfbf9] text-[#615750] hover:border-[#bda78f]"
                           }`}
                       >
-                        {isChecked && (
-                          <Icon name="check" className="h-3.5 w-3.5" />
-                        )}
-                      </span>
-                      {option}
-                    </label>
-                  );
-                })}
-              </div>
+                        <input
+                          className="sr-only"
+                          type="radio"
+                          name={question.id}
+                          checked={isChecked}
+                          onChange={() => setSingle(question.id, option)}
+                        />
+                        <span
+                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${isChecked
+                              ? "border-[#a86438] bg-[#a86438] text-white"
+                              : "border-[#b9b0a6] bg-white"
+                            }`}
+                        >
+                          {isChecked && (
+                            <Icon name="check" className="h-3.5 w-3.5" />
+                          )}
+                        </span>
+                        {option}
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <textarea
+                  value={answers[question.id]}
+                  onChange={(event) => setSingle(question.id, event.target.value)}
+                  required
+                  maxLength={question.maxLength}
+                  rows={3}
+                  placeholder="Escribe aquí tu respuesta..."
+                  className="w-full resize-y rounded-xl border border-[#ddd6ce] bg-[#fcfbf9] p-4 text-sm leading-6 text-[#463b35] outline-none transition placeholder:text-[#aaa099] focus:border-[#aa693d] focus:ring-2 focus:ring-[#aa693d]/10"
+                />
+              )}
             </fieldset>
           ))}
-
-          <section className="question-card rounded-2xl border border-[#ded8ce] bg-white p-6 sm:p-9">
-            <div className="mb-6 flex gap-4 sm:gap-6">
-              <span className="font-display text-2xl italic text-[#b87545]">
-                06
-              </span>
-              <div>
-                <h2 className="text-lg font-semibold leading-7 text-[#382f2b] sm:text-xl">
-                  Si pudieras incorporar un plato a la nueva carta de UMARU,
-                  ¿cuál sería?
-                </h2>
-                <p className="mt-1 text-sm text-[#83766e]">
-                  Cuéntanos qué tendría que tener para que quieras venir a
-                  probarlo.
-                </p>
-              </div>
-            </div>
-            <textarea
-              value={answers.q6}
-              onChange={(event) =>
-                setAnswers((current) => ({
-                  ...current,
-                  q6: event.target.value,
-                }))
-              }
-              maxLength={500}
-              rows={5}
-              placeholder="Escribe aquí tu propuesta..."
-              className="w-full resize-none rounded-xl border border-[#ddd6ce] bg-[#fcfbf9] p-4 text-sm leading-6 text-[#463b35] outline-none transition placeholder:text-[#aaa099] focus:border-[#aa693d] focus:ring-2 focus:ring-[#aa693d]/10"
-            />
-            <p className="mt-2 text-right text-xs text-[#9a918b]">
-              {answers.q6.length}/500
-            </p>
-          </section>
         </div>
 
         {error && (
@@ -454,18 +435,21 @@ function Results({
 
   const resultGroups = useMemo(
     () =>
-      questions.map((question) => ({
+      questions
+        .filter(
+          (question): question is Question & { options: string[] } =>
+            question.options !== undefined,
+        )
+        .map((question) => ({
         ...question,
         counts: question.options.map((option) => ({
           option,
           count: responses.filter((response) => {
             const answer = response[question.id];
-            return Array.isArray(answer)
-              ? answer.includes(option)
-              : answer === option;
+            return answer === option;
           }).length,
         })),
-      })),
+        })),
     [responses],
   );
 
@@ -621,7 +605,7 @@ function Results({
             <p className="text-xs font-bold uppercase tracking-[0.13em] text-[#887b73]">
               Preguntas
             </p>
-            <p className="mt-3 font-display text-5xl text-[#3a302b]">6</p>
+            <p className="mt-3 font-display text-5xl text-[#3a302b]">{questions.length}</p>
           </div>
         </div>
 
@@ -664,7 +648,6 @@ function Results({
                     </h2>
                     <p className="mt-1 text-xs font-medium text-[#958a83]">
                       {optionTotal} {optionTotal === 1 ? "voto" : "votos"}
-                      {question.multiple && " · Selección múltiple"}
                     </p>
                   </div>
                 </div>
@@ -721,41 +704,50 @@ function Results({
             );
           })}
 
-          <section className="rounded-2xl border border-[#ddd6cd] bg-white p-6 sm:p-8 lg:col-span-2">
-            <div className="mb-6 flex items-start gap-4">
-              <span className="font-display text-xl italic text-[#b87545]">
-                06
-              </span>
-              <div>
-                <h2 className="font-semibold text-[#403630]">
-                  Propuestas de nuevos platos
-                </h2>
-                <p className="mt-1 text-xs font-medium text-[#958a83]">
-                  Respuestas abiertas más recientes
-                </p>
-              </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {responses.filter((response) => response.q6.trim()).length ? (
-                responses
-                  .filter((response) => response.q6.trim())
-                  .slice()
-                  .reverse()
-                  .map((response) => (
-                    <blockquote
-                      key={response.id}
-                      className="rounded-xl border border-[#e2ddd6] bg-[#faf8f5] p-5 text-sm leading-6 text-[#665a53]"
-                    >
-                      “{response.q6}”
-                    </blockquote>
-                  ))
-              ) : (
-                <p className="text-sm text-[#90857e]">
-                  Aún no hay propuestas escritas.
-                </p>
-              )}
-            </div>
-          </section>
+          {questions
+            .filter((question) => !question.options)
+            .map((question) => {
+              const openResponses = responses
+                .filter((response) => response[question.id].trim())
+                .slice()
+                .reverse();
+              return (
+                <section
+                  key={question.id}
+                  className="rounded-2xl border border-[#ddd6cd] bg-white p-6 sm:p-8 lg:col-span-2"
+                >
+                  <div className="mb-6 flex items-start gap-4">
+                    <span className="font-display text-xl italic text-[#b87545]">
+                      {question.number}
+                    </span>
+                    <div>
+                      <h2 className="font-semibold text-[#403630]">
+                        {question.title}
+                      </h2>
+                      <p className="mt-1 text-xs font-medium text-[#958a83]">
+                        {openResponses.length} respuestas abiertas
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {openResponses.length ? (
+                      openResponses.map((response) => (
+                        <blockquote
+                          key={response.id}
+                          className="rounded-xl border border-[#e2ddd6] bg-[#faf8f5] p-5 text-sm leading-6 text-[#665a53]"
+                        >
+                          “{response[question.id]}”
+                        </blockquote>
+                      ))
+                    ) : (
+                      <p className="text-sm text-[#90857e]">
+                        Aún no hay respuestas escritas.
+                      </p>
+                    )}
+                  </div>
+                </section>
+              );
+            })}
         </div>
       </div>
     </main>
@@ -868,7 +860,8 @@ export default function App() {
   });
   const [responses, setResponses] = useState<Response[]>(() => {
     try {
-      return JSON.parse(localStorage.getItem(storageKey) || "[]");
+      const stored = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      return Array.isArray(stored) ? stored.map(normalizeStoredResponse) : [];
     } catch {
       return [];
     }

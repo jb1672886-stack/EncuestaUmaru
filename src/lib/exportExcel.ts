@@ -5,19 +5,19 @@ type Response = {
   createdAt: string;
   q1: string;
   q2: string;
-  q3: string[];
+  q3: string;
   q4: string;
   q5: string;
   q6: string;
+  q7: string;
+  q8: string;
 };
 
 type Question = {
-  id: "q1" | "q2" | "q3" | "q4" | "q5";
+  id: "q1" | "q2" | "q3" | "q4" | "q5" | "q6" | "q7" | "q8";
   number: string;
   title: string;
-  hint?: string;
-  options: string[];
-  multiple?: boolean;
+  options?: string[];
 };
 
 export function exportSurveyToExcel(responses: Response[], questions: Question[]) {
@@ -35,12 +35,7 @@ export function exportSurveyToExcel(responses: Response[], questions: Question[]
     "N°",
     "ID de Registro",
     "Fecha y Hora",
-    "P1. Frecuencia de Visita",
-    "P2. Propuesta Gastronómica Deseada",
-    "P3. Factores Más Importantes",
-    "P4. Disposición de Pago (Plato Principal)",
-    "P5. Motivación para Volver",
-    "P6. Sugerencia / Propuesta Escrita",
+    ...questions.map((question) => `P${question.number}. ${question.title}`),
   ];
 
   const rawDataRows = responses.map((r, index) => {
@@ -53,12 +48,7 @@ export function exportSurveyToExcel(responses: Response[], questions: Question[]
       index + 1,
       r.id,
       dateFormatted,
-      r.q1 || "Sin responder",
-      r.q2 || "Sin responder",
-      Array.isArray(r.q3) ? r.q3.join(", ") : r.q3 || "Sin responder",
-      r.q4 || "Sin responder",
-      r.q5 || "Sin responder",
-      r.q6 ? r.q6.trim() : "(Sin sugerencia)",
+      ...questions.map((question) => r[question.id] || "Sin responder"),
     ];
   });
 
@@ -69,12 +59,7 @@ export function exportSurveyToExcel(responses: Response[], questions: Question[]
     { wch: 5 },  // N°
     { wch: 38 }, // ID
     { wch: 22 }, // Fecha
-    { wch: 28 }, // P1
-    { wch: 38 }, // P2
-    { wch: 35 }, // P3
-    { wch: 24 }, // P4
-    { wch: 35 }, // P5
-    { wch: 50 }, // P6
+    ...questions.map(() => ({ wch: 36 })),
   ];
 
   XLSX.utils.book_append_sheet(wb, wsRaw, "Respuestas Detalladas");
@@ -90,20 +75,18 @@ export function exportSurveyToExcel(responses: Response[], questions: Question[]
   statsRows.push([]); // blank
 
   questions.forEach((q) => {
+    if (!q.options) return;
     statsRows.push([`PREGUNTA ${q.number}: ${q.title}`]);
     statsRows.push(["Opción de Respuesta", "N° de Respuestas", "Porcentaje (%)", "Barra Visual"]);
 
     const counts = q.options.map((opt) => {
       const count = responses.filter((r) => {
-        const val = r[q.id];
-        return Array.isArray(val) ? val.includes(opt) : val === opt;
+        return r[q.id] === opt;
       }).length;
       return { opt, count };
     });
 
-    const totalVotes = q.multiple
-      ? counts.reduce((acc, c) => acc + c.count, 0)
-      : responses.length;
+    const totalVotes = responses.length;
 
     counts.forEach(({ opt, count }) => {
       const pct = totalVotes > 0 ? (count / totalVotes) * 100 : 0;
@@ -113,11 +96,7 @@ export function exportSurveyToExcel(responses: Response[], questions: Question[]
       statsRows.push([opt, count, `${pct.toFixed(1)}%`, bar]);
     });
 
-    if (q.multiple) {
-      statsRows.push(["Total de selecciones:", totalVotes, "100.0%", ""]);
-    } else {
-      statsRows.push(["Total encuestados:", responses.length, "100.0%", ""]);
-    }
+    statsRows.push(["Total encuestados:", responses.length, "100.0%", ""]);
 
     statsRows.push([]); // blank separator
   });
@@ -133,43 +112,46 @@ export function exportSurveyToExcel(responses: Response[], questions: Question[]
   XLSX.utils.book_append_sheet(wb, wsStats, "Cuadros Estadísticos");
 
   // ==========================================
-  // SHEET 3: PROPUESTAS Y COMENTARIOS
+  // SHEET 3: OPEN-ENDED ANSWERS
   // ==========================================
+  const openQuestions = questions.filter((question) => !question.options);
   const commentsHeaders = [
     "N°",
     "Fecha",
-    "Propuesta / Comentario del Cliente",
+    "Pregunta",
+    "Respuesta del Cliente",
     "Frecuencia de Visita",
-    "Propuesta Deseada",
-    "Rango de Precio",
   ];
 
-  const commentsWithFeedback = responses.filter((r) => r.q6 && r.q6.trim().length > 0);
-
-  const commentsRows = commentsWithFeedback.map((r, index) => [
-    index + 1,
-    new Date(r.createdAt).toLocaleDateString("es-PE"),
-    r.q6.trim(),
-    r.q1 || "-",
-    r.q2 || "-",
-    r.q4 || "-",
-  ]);
+  const commentsRows = responses.flatMap((response) =>
+    openQuestions.flatMap((question) => {
+      const answer = response[question.id].trim();
+      return answer
+        ? [[
+            response.id,
+            new Date(response.createdAt).toLocaleDateString("es-PE"),
+            `P${question.number}. ${question.title}`,
+            answer,
+            response.q1 || "-",
+          ]]
+        : [];
+    }),
+  );
 
   const wsComments = XLSX.utils.aoa_to_sheet([
-    ["SUGERENCIAS Y PROPUESTAS ESCRITAS POR LOS CLIENTES"],
-    [`Total con comentarios escritos: ${commentsWithFeedback.length} de ${responses.length} encuestados`],
+    ["RESPUESTAS ABIERTAS DE LOS CLIENTES"],
+    [`Total de respuestas abiertas: ${commentsRows.length}`],
     [],
     commentsHeaders,
     ...commentsRows,
   ]);
 
   wsComments["!cols"] = [
-    { wch: 6 },
+    { wch: 38 },
     { wch: 14 },
     { wch: 60 },
+    { wch: 60 },
     { wch: 24 },
-    { wch: 32 },
-    { wch: 18 },
   ];
 
   XLSX.utils.book_append_sheet(wb, wsComments, "Propuestas de Clientes");
