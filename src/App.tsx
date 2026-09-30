@@ -86,9 +86,14 @@ const questions: Question[] = [
   {
     id: "q7",
     number: "07",
-    title: "¿Qué tipo de música prefieres escuchar a la hora del almuerzo?",
-    hint: "Respuesta abierta breve",
-    maxLength: 120,
+    title: "¿Qué tipo de música prefieres escuchar durante tu visita a UMARU?",
+    options: [
+      "Música Ayacuchana",
+      "Música criolla",
+      "Música latinoamericana",
+      "Pop y Rock clásico",
+      "Música clásica e instrumental",
+    ],
   },
   {
     id: "q8",
