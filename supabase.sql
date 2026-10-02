@@ -18,13 +18,33 @@ create table if not exists public.las_flores_responses (
   server_name text not null,
   dish_consumed text not null,
   visit_type text not null check (visit_type in ('si', 'no', 'frecuente')),
-  visit_frequency text not null check (visit_frequency in ('semanal', 'mensual', 'feriados', 'ocasional')),
+  visit_frequency text check (
+    visit_frequency in ('semanal', 'mensual', 'feriados', 'ocasional')
+  ),
   attention_rating smallint not null check (attention_rating between 1 and 5),
   dishes_rating smallint not null check (dishes_rating between 1 and 5),
   ambience_rating smallint not null check (ambience_rating between 1 and 5),
   recommendation_rating smallint not null check (recommendation_rating between 1 and 5),
   suggestion text not null default ''
 );
+
+alter table public.las_flores_responses
+  alter column visit_frequency drop not null;
+
+alter table public.las_flores_responses
+  drop constraint if exists las_flores_responses_visit_frequency_check;
+
+alter table public.las_flores_responses
+  add constraint las_flores_responses_visit_frequency_check
+  check (
+    (visit_type = 'si' and (
+      visit_frequency is null
+      or visit_frequency in ('semanal', 'mensual', 'feriados', 'ocasional')
+    ))
+    or
+    (visit_type in ('no', 'frecuente') and visit_frequency is not null and
+      visit_frequency in ('semanal', 'mensual', 'feriados', 'ocasional'))
+  );
 
 alter table public.survey_responses
   add column if not exists q5_other text not null default '',

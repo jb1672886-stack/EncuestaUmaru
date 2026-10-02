@@ -30,7 +30,7 @@ type LasFloresDatabaseResponse = {
   server_name: string
   dish_consumed: string
   visit_type: string
-  visit_frequency: string
+  visit_frequency: string | null
   attention_rating: number
   dishes_rating: number
   ambience_rating: number
@@ -951,7 +951,11 @@ function LasFloresSurvey({
   const [error, setError] = useState("")
 
   function updateAnswer(key: keyof LasFloresAnswers, value: string) {
-    setAnswers((current) => ({ ...current, [key]: value }))
+    setAnswers((current) => ({
+      ...current,
+      [key]: value,
+      ...(key === "visitType" && value === "si" ? { visitFrequency: "" } : {}),
+    }))
     setError("")
   }
 
@@ -961,7 +965,7 @@ function LasFloresSurvey({
       answers.serverName,
       answers.dishConsumed,
       answers.visitType,
-      answers.visitFrequency,
+      ...(answers.visitType === "si" ? [] : [answers.visitFrequency]),
       answers.attentionRating,
       answers.dishesRating,
       answers.ambienceRating,
@@ -1117,10 +1121,14 @@ function LasFloresSurvey({
               </h2>
             </div>
             {renderOptions("visitType", visitTypeOptions)}
-            <h3 className="mb-4 mt-8 text-base font-semibold text-[#382f2b]">
-              Frecuencia de visita
-            </h3>
-            {renderOptions("visitFrequency", visitFrequencyOptions)}
+            {answers.visitType !== "" && answers.visitType !== "si" && (
+              <>
+                <h3 className="mb-4 mt-8 text-base font-semibold text-[#382f2b]">
+                  Frecuencia de visita
+                </h3>
+                {renderOptions("visitFrequency", visitFrequencyOptions)}
+              </>
+            )}
           </fieldset>
 
           <fieldset className="question-card rounded-2xl border border-[#ded8ce] bg-white p-6 sm:p-9">
@@ -1643,7 +1651,7 @@ function LasFloresResults({
                       </div>
                       <p className="mt-3 text-sm font-medium text-[#51433c]">
                         Visita: {response.visitType} · Frecuencia:{" "}
-                        {response.visitFrequency} · Atención:{" "}
+                        {response.visitFrequency || "No aplica"} · Atención:{" "}
                         {response.attentionRating}/5 · Platillos:{" "}
                         {response.dishesRating}/5 · Ambiente:{" "}
                         {response.ambienceRating}/5 · Recomendación:{" "}
@@ -1944,7 +1952,7 @@ export default function App() {
             serverName: response.server_name,
             dishConsumed: response.dish_consumed,
             visitType: response.visit_type,
-            visitFrequency: response.visit_frequency,
+            visitFrequency: response.visit_frequency || "",
             attentionRating: String(response.attention_rating),
             dishesRating: String(response.dishes_rating),
             ambienceRating: String(response.ambience_rating),
@@ -2075,7 +2083,7 @@ export default function App() {
         server_name: answer.serverName.trim(),
         dish_consumed: answer.dishConsumed.trim(),
         visit_type: answer.visitType,
-        visit_frequency: answer.visitFrequency,
+        visit_frequency: answer.visitType === "si" ? null : answer.visitFrequency,
         attention_rating: Number(answer.attentionRating),
         dishes_rating: Number(answer.dishesRating),
         ambience_rating: Number(answer.ambienceRating),
