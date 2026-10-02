@@ -5,3 +5,5 @@ minimumReleaseAgeExclude:
   - '@supabase/realtime-js@2.117.0'
   - '@supabase/storage-js@2.117.0'
   - '@supabase/supabase-js@2.117.0'
+overrides:
+  exceljs>uuid: ^11.1.1
