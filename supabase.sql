@@ -12,6 +12,20 @@ create table if not exists public.survey_responses (
   q8 text not null default ''
 );
 
+create table if not exists public.las_flores_responses (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  server_name text not null,
+  dish_consumed text not null,
+  visit_type text not null check (visit_type in ('si', 'no', 'frecuente')),
+  visit_frequency text not null check (visit_frequency in ('semanal', 'mensual', 'feriados', 'ocasional')),
+  attention_rating smallint not null check (attention_rating between 1 and 5),
+  dishes_rating smallint not null check (dishes_rating between 1 and 5),
+  ambience_rating smallint not null check (ambience_rating between 1 and 5),
+  recommendation_rating smallint not null check (recommendation_rating between 1 and 5),
+  suggestion text not null default ''
+);
+
 alter table public.survey_responses
   add column if not exists q5_other text not null default '',
   add column if not exists q7 text not null default '',
@@ -57,6 +71,29 @@ for delete
 to anon
 using (true);
 
+alter table public.las_flores_responses enable row level security;
+
+drop policy if exists "Anyone can submit Las Flores responses" on public.las_flores_responses;
+create policy "Anyone can submit Las Flores responses"
+on public.las_flores_responses
+for insert
+to anon
+with check (true);
+
+drop policy if exists "Anyone can read Las Flores responses" on public.las_flores_responses;
+create policy "Anyone can read Las Flores responses"
+on public.las_flores_responses
+for select
+to anon
+using (true);
+
+drop policy if exists "Anyone can delete Las Flores responses" on public.las_flores_responses;
+create policy "Anyone can delete Las Flores responses"
+on public.las_flores_responses
+for delete
+to anon
+using (true);
+
 -- Habilitar publicaciones en tiempo real en Supabase para actualizaciones instantáneas
 do $$
 begin
@@ -69,6 +106,14 @@ begin
   ) then
     alter publication supabase_realtime add table public.survey_responses;
   end if;
+
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'las_flores_responses'
+  ) then
+    alter publication supabase_realtime add table public.las_flores_responses;
+  end if;
 end $$;
-
-

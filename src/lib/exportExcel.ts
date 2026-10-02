@@ -1,169 +1,300 @@
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs"
 
 type Response = {
-  id: string;
-  createdAt: string;
-  q1: string;
-  q2: string;
-  q3: string;
-  q4: string;
-  q5: string;
-  q5Other: string;
-  q6: string;
-  q7: string;
-  q8: string;
-};
+  id: string
+
+  createdAt: string
+
+  q1: string
+
+  q2: string
+
+  q3: string
+
+  q4: string
+
+  q5: string
+
+  q5Other: string
+
+  q6: string
+
+  q7: string
+
+  q8: string
+}
 
 type Question = {
-  id: "q1" | "q2" | "q3" | "q4" | "q5" | "q6" | "q7" | "q8";
-  number: string;
-  title: string;
-  options?: string[];
-};
+  id: "q1" | "q2" | "q3" | "q4" | "q5" | "q6" | "q7" | "q8"
 
-export function exportSurveyToExcel(responses: Response[], questions: Question[]) {
-  if (!responses || responses.length === 0) {
-    alert("No hay respuestas registradas para exportar.");
-    return;
+  number: string
+
+  title: string
+
+  options?: string[]
+}
+
+function formatDate(value: string, includeTime = true) {
+  return new Date(value).toLocaleString("es-PE", {
+    dateStyle: "medium",
+
+    ...(includeTime ? { timeStyle: "short" as const } : {}),
+  })
+}
+
+function styleHeader(row: ExcelJS.Row) {
+  row.font = { bold: true, color: { argb: "FFFFFFFF" } }
+
+  row.fill = {
+    type: "pattern",
+
+    pattern: "solid",
+
+    fgColor: { argb: "FF3A302B" },
   }
 
-  const wb = XLSX.utils.book_new();
+  row.alignment = { vertical: "middle", wrapText: true }
+}
 
-  // ==========================================
-  // SHEET 1: RESPUESTAS DETALLADAS (RAW DATA)
-  // ==========================================
-  const rawDataHeaders = [
-    "N°",
-    "ID de Registro",
-    "Fecha y Hora",
-    ...questions.map((question) => `P${question.number}. ${question.title}`),
-    "Motivo indicado (P5: Otro)",
-  ];
+export async function exportSurveyToExcel(
+  responses: Response[],
 
-  const rawDataRows = responses.map((r, index) => {
-    const dateFormatted = new Date(r.createdAt).toLocaleString("es-PE", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
+  questions: Question[],
+) {
+  if (!responses || responses.length === 0) {
+    alert("No hay respuestas registradas para exportar.")
 
-    return [
-      index + 1,
-      r.id,
-      dateFormatted,
-      ...questions.map((question) => r[question.id] || "Sin responder"),
-      r.q5Other || "",
-    ];
-  });
+    return
+  }
 
-  const wsRaw = XLSX.utils.aoa_to_sheet([rawDataHeaders, ...rawDataRows]);
+  try {
+    const workbook = new ExcelJS.Workbook()
 
-  // Adjust column widths for Sheet 1
-  wsRaw["!cols"] = [
-    { wch: 5 },  // N°
-    { wch: 38 }, // ID
-    { wch: 22 }, // Fecha
-    ...questions.map(() => ({ wch: 36 })),
-    { wch: 36 },
-  ];
+    workbook.creator = "UMARU Hotel"
 
-  XLSX.utils.book_append_sheet(wb, wsRaw, "Respuestas Detalladas");
+    workbook.created = new Date()
 
-  // ==========================================
-  // SHEET 2: CUADROS ESTADÍSTICOS Y RESUMEN
-  // ==========================================
-  const statsRows: (string | number)[][] = [];
+    const rawSheet = workbook.addWorksheet("Respuestas Detalladas")
 
-  statsRows.push(["UMARU HOTEL - REPORTE EJECUTIVO Y ESTADÍSTICAS DE ENCUESTA"]);
-  statsRows.push(["Fecha de generación:", new Date().toLocaleString("es-PE")]);
-  statsRows.push(["Total de participantes:", responses.length]);
-  statsRows.push([]); // blank
+    const rawHeaders = [
+      "N°",
 
-  questions.forEach((q) => {
-    if (!q.options) return;
-    statsRows.push([`PREGUNTA ${q.number}: ${q.title}`]);
-    statsRows.push(["Opción de Respuesta", "N° de Respuestas", "Porcentaje (%)", "Barra Visual"]);
+      "ID de Registro",
 
-    const counts = q.options.map((opt) => {
-      const count = responses.filter((r) => {
-        return r[q.id] === opt;
-      }).length;
-      return { opt, count };
-    });
+      "Fecha y Hora",
 
-    const totalVotes = responses.length;
+      ...questions.map((question) => `P${question.number}. ${question.title}`),
 
-    counts.forEach(({ opt, count }) => {
-      const pct = totalVotes > 0 ? (count / totalVotes) * 100 : 0;
-      const barLength = Math.round(pct / 5);
-      const bar = "█".repeat(barLength) + "░".repeat(Math.max(0, 20 - barLength));
+      "Motivo indicado (P5: Otro)",
+    ]
 
-      statsRows.push([opt, count, `${pct.toFixed(1)}%`, bar]);
-    });
+    rawSheet.addRow(rawHeaders)
 
-    statsRows.push(["Total encuestados:", responses.length, "100.0%", ""]);
+    styleHeader(rawSheet.getRow(1))
 
-    statsRows.push([]); // blank separator
-  });
+    rawSheet.views = [{ state: "frozen", ySplit: 1 }]
 
-  const wsStats = XLSX.utils.aoa_to_sheet(statsRows);
-  wsStats["!cols"] = [
-    { wch: 45 }, // Opción / Pregunta
-    { wch: 18 }, // Nº Respuestas
-    { wch: 16 }, // %
-    { wch: 25 }, // Barra
-  ];
+    rawSheet.addRows(
+      responses.map((response, index) => [
+        index + 1,
 
-  XLSX.utils.book_append_sheet(wb, wsStats, "Cuadros Estadísticos");
+        response.id,
 
-  // ==========================================
-  // SHEET 3: OPEN-ENDED ANSWERS
-  // ==========================================
-  const openQuestions = questions.filter((question) => !question.options);
-  const commentsHeaders = [
-    "N°",
-    "Fecha",
-    "Pregunta",
-    "Respuesta del Cliente",
-    "Frecuencia de Visita",
-  ];
+        formatDate(response.createdAt),
 
-  const commentsRows = responses.flatMap((response) =>
-    openQuestions.flatMap((question) => {
-      const answer = response[question.id].trim();
-      return answer
-        ? [[
-            response.id,
-            new Date(response.createdAt).toLocaleDateString("es-PE"),
-            `P${question.number}. ${question.title}`,
-            answer,
-            response.q1 || "-",
-          ]]
-        : [];
-    }),
-  );
+        ...questions.map(
+          (question) => response[question.id] || "Sin responder",
+        ),
 
-  const wsComments = XLSX.utils.aoa_to_sheet([
-    ["RESPUESTAS ABIERTAS DE LOS CLIENTES"],
-    [`Total de respuestas abiertas: ${commentsRows.length}`],
-    [],
-    commentsHeaders,
-    ...commentsRows,
-  ]);
+        response.q5Other || "",
+      ]),
+    )
 
-  wsComments["!cols"] = [
-    { wch: 38 },
-    { wch: 14 },
-    { wch: 60 },
-    { wch: 60 },
-    { wch: 24 },
-  ];
+    rawSheet.columns = rawHeaders.map((_, index) => ({
+      width: index === 0 ? 5 : index === 1 ? 38 : index === 2 ? 22 : 36,
+    }))
 
-  XLSX.utils.book_append_sheet(wb, wsComments, "Propuestas de Clientes");
+    rawSheet.eachRow((row) => {
+      row.alignment = { vertical: "top", wrapText: true }
+    })
 
-  // ==========================================
-  // GENERATE DOWNLOAD
-  // ==========================================
-  const dateStr = new Date().toISOString().slice(0, 10);
-  const fileName = `Reporte_Encuestas_UMARU_${dateStr}.xlsx`;
-  XLSX.writeFile(wb, fileName);
+    styleHeader(rawSheet.getRow(1))
+
+    const statsSheet = workbook.addWorksheet("Cuadros Estadísticos")
+
+    const statsRows: (string | number)[][] = [
+      ["UMARU HOTEL - REPORTE EJECUTIVO Y ESTADÍSTICAS DE ENCUESTA"],
+
+      ["Fecha de generación:", new Date().toLocaleString("es-PE")],
+
+      ["Total de participantes:", responses.length],
+
+      [],
+    ]
+
+    questions.forEach((question) => {
+      if (!question.options) return
+
+      statsRows.push([`PREGUNTA ${question.number}: ${question.title}`])
+
+      statsRows.push([
+        "Opción de Respuesta",
+
+        "N° de Respuestas",
+
+        "Porcentaje (%)",
+
+        "Barra Visual",
+      ])
+
+      question.options.forEach((option) => {
+        const count = responses.filter(
+          (response) => response[question.id] === option,
+        ).length
+
+        const percentage = (count / responses.length) * 100
+
+        const barLength = Math.round(percentage / 5)
+
+        const bar =
+          "█".repeat(barLength) + "░".repeat(Math.max(0, 20 - barLength))
+
+        statsRows.push([option, count, `${percentage.toFixed(1)}%`, bar])
+      })
+
+      statsRows.push(["Total encuestados:", responses.length, "100.0%", ""])
+
+      statsRows.push([])
+    })
+
+    statsSheet.addRows(statsRows)
+
+    statsSheet.columns = [
+      { width: 45 },
+
+      { width: 18 },
+
+      { width: 16 },
+
+      { width: 25 },
+    ]
+
+    statsSheet.getRow(1).font = { bold: true, size: 14 }
+
+    statsSheet.eachRow((row) => {
+      if (
+        typeof row.getCell(1).value === "string" &&
+        row.getCell(1).value.startsWith("PREGUNTA ")
+      ) {
+        row.font = { bold: true, color: { argb: "FF8A5230" } }
+      }
+
+      if (row.getCell(1).value === "Opción de Respuesta") {
+        styleHeader(row)
+      }
+    })
+
+    const openQuestions = questions.filter((question) => !question.options)
+
+    const commentsSheet = workbook.addWorksheet("Propuestas de Clientes")
+
+    commentsSheet.addRows([
+      ["RESPUESTAS ABIERTAS DE LOS CLIENTES"],
+
+      [
+        `Total de respuestas abiertas: ${responses.reduce(
+          (count, response) =>
+            count +
+            openQuestions.filter((question) => response[question.id].trim())
+              .length,
+
+          0,
+        )}`,
+      ],
+
+      [],
+
+      [
+        "N°",
+
+        "Fecha",
+
+        "Pregunta",
+
+        "Respuesta del Cliente",
+
+        "Frecuencia de Visita",
+      ],
+
+      ...responses.flatMap((response) =>
+        openQuestions.flatMap((question) => {
+          const answer = response[question.id].trim()
+
+          return answer
+            ? [
+                [
+                  response.id,
+
+                  formatDate(response.createdAt, false),
+
+                  `P${question.number}. ${question.title}`,
+
+                  answer,
+
+                  response.q1 || "-",
+                ],
+              ]
+            : []
+        }),
+      ),
+    ])
+
+    styleHeader(commentsSheet.getRow(4))
+
+    commentsSheet.views = [{ state: "frozen", ySplit: 4 }]
+
+    commentsSheet.columns = [
+      { width: 38 },
+
+      { width: 14 },
+
+      { width: 60 },
+
+      { width: 60 },
+
+      { width: 24 },
+    ]
+
+    commentsSheet.eachRow((row) => {
+      row.alignment = { vertical: "top", wrapText: true }
+    })
+
+    styleHeader(commentsSheet.getRow(4))
+
+    const buffer = await workbook.xlsx.writeBuffer()
+
+    const blob = new Blob([new Uint8Array(buffer)], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    })
+
+    const url = URL.createObjectURL(blob)
+
+    const link = document.createElement("a")
+
+    link.href = url
+
+    link.download = `Reporte_Encuestas_UMARU_${new Date()
+
+      .toISOString()
+
+      .slice(0, 10)}.xlsx`
+
+    link.click()
+
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  } catch (error) {
+    console.error("No se pudo generar el archivo de Excel:", error)
+
+    alert("No se pudo generar el archivo de Excel. Intenta de nuevo.")
+  }
 }
